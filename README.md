@@ -67,19 +67,45 @@ Covered flows:
 
 ## GitHub Pages deployment
 
-This project is Vite-based and uses `base: './'` in `vite.config.ts` for static hosting portability.
+Target repo and URL:
+- Repo: `https://github.com/Harlinho/Pickleball-Tracker`
+- Site: `https://harlinho.github.io/Pickleball-Tracker/`
 
-1. Build artifacts:
+This project is configured for a GitHub Pages project site subpath:
+- Vite base path in `vite.config.ts`: `/Pickleball-Tracker/`
+- Router basename in `src/main.tsx`: `import.meta.env.BASE_URL`
+
+### One-time GitHub setup
+
+1. Push this project to the `main` branch of `Harlinho/Pickleball-Tracker`.
+2. In GitHub, open:
+   - `Settings` → `Pages`
+3. Under **Build and deployment**:
+   - **Source**: select `GitHub Actions`
+4. In `Settings` → `Actions` → `General`, ensure workflow permissions allow Pages deployment:
+   - `Read and write permissions` (or at minimum Pages deploy permissions).
+
+### Deploy workflow
+
+Workflow file:
+- `.github/workflows/deploy-pages.yml`
+
+What it does:
+1. Runs on push to `main` (and manual `workflow_dispatch`)
+2. Installs dependencies with `npm ci`
+3. Builds with `npm run build`
+4. Copies `dist/index.html` to `dist/404.html` (SPA refresh/deep-link fallback on Pages)
+5. Uploads `dist/` as Pages artifact
+6. Deploys with `actions/deploy-pages`
+
+### Local verification before push
+
 ```bash
+npm install
 npm run build
 ```
-2. Publish `dist/` to GitHub Pages (for example with `gh-pages` branch or GitHub Action).
-3. If using GitHub Actions, deploy `dist` as the Pages artifact.
 
-Example manual deploy flow:
-- create `gh-pages` branch
-- copy contents of `dist/` to that branch root
-- push and set Pages source to `gh-pages`
+If build succeeds, push to `main` and GitHub Actions will deploy automatically.
 
 ## Architecture snapshot
 
