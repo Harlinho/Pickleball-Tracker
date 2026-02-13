@@ -100,4 +100,5 @@ export interface StandingsFilters {
 
 export interface AppMeta {
   lastBackupAt?: string;
+  didRunProdCleanup?: boolean;
 }

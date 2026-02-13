@@ -13,7 +13,8 @@ export default [
       globals: {
         self: 'readonly',
         caches: 'readonly',
-        fetch: 'readonly'
+        fetch: 'readonly',
+        URL: 'readonly'
       }
     }
   },

@@ -27,6 +27,15 @@ const colors = ['#16a34a', '#0284c7', '#ea580c', '#4f46e5', '#ef4444', '#0f766e'
 
 const makeId = () => crypto.randomUUID();
 
+const isLegacyDemoData = (players: Player[], matches: Match[]): boolean => {
+  if (players.length !== 4 || matches.length !== 2) return false;
+  const names = [...players.map((p) => p.name)].sort();
+  const demoNames = ['Ari', 'Blake', 'Casey', 'Dev'];
+  const namesMatch = demoNames.every((name, idx) => names[idx] === name);
+  const hasWarmUpNote = matches.some((m) => m.notes === 'Warm-up match');
+  return namesMatch && hasWarmUpNote;
+};
+
 export const createPlayerDraft = (name: string, favoriteTennisPlayer?: string): Player => ({
   id: makeId(),
   name,
@@ -93,6 +102,22 @@ export const loadData = async (): Promise<{ players: Player[]; matches: Match[];
   const [players, matches] = await Promise.all([readAll<Player>('players'), readAll<Match>('matches')]);
   const db = await dbPromise;
   const meta = ((await db.get('meta', META_KEY)) as AppMeta | undefined) ?? {};
+
+  if (!import.meta.env.DEV && !meta.didRunProdCleanup) {
+    const nextMeta = { ...meta, didRunProdCleanup: true };
+    if (isLegacyDemoData(players, matches)) {
+      const tx = db.transaction(['players', 'matches', 'meta'], 'readwrite');
+      await Promise.all([
+        tx.objectStore('players').clear(),
+        tx.objectStore('matches').clear(),
+        tx.objectStore('meta').put(nextMeta, META_KEY),
+        tx.done
+      ]);
+      return { players: [], matches: [], meta: nextMeta };
+    }
+    await db.put('meta', nextMeta, META_KEY);
+    return { players, matches, meta: nextMeta };
+  }
 
   if (players.length || matches.length) {
     return { players, matches, meta };
