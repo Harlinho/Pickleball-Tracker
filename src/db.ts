@@ -98,6 +98,12 @@ export const loadData = async (): Promise<{ players: Player[]; matches: Match[];
     return { players, matches, meta };
   }
 
+  // Keep production clean: no auto-demo data on first load in deployed app.
+  if (!import.meta.env.DEV) {
+    await db.put('meta', meta, META_KEY);
+    return { players: [], matches: [], meta };
+  }
+
   const seed = createInitialSeed();
   const tx = db.transaction(['players', 'matches', 'meta'], 'readwrite');
   await Promise.all([
