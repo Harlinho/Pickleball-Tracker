@@ -14,6 +14,11 @@ const makeId = () => crypto.randomUUID();
 const QUICK_ENTRY_KEY = 'pickleball-journal-quick-entry';
 
 const defaultSets = (count: number): SetEntry[] => Array.from({ length: count }, () => ({}));
+const hasNumericScore = (value: number | undefined): value is number => typeof value === 'number' && !Number.isNaN(value);
+const deriveWinnerFromScores = (scoreA?: number, scoreB?: number): Side | undefined => {
+  if (!hasNumericScore(scoreA) || !hasNumericScore(scoreB) || scoreA === scoreB) return undefined;
+  return scoreA > scoreB ? 'A' : 'B';
+};
 
 interface QuickEntryDefaults {
   status: MatchStatus;
@@ -80,7 +85,17 @@ export const MatchForm = ({ players, initial, onSave }: MatchFormProps) => {
   };
 
   const updateScore = (index: number, key: 'scoreA' | 'scoreB', raw: string) => {
-    updateSet(index, { [key]: raw === '' ? undefined : Number(raw) } as Partial<SetEntry>);
+    setSets((prev) => {
+      const next = [...prev];
+      const current = next[index] ?? {};
+      const updated = { ...current, [key]: raw === '' ? undefined : Number(raw) } as SetEntry;
+      const derivedWinner = deriveWinnerFromScores(updated.scoreA, updated.scoreB);
+      if (derivedWinner) {
+        updated.winnerSide = derivedWinner;
+      }
+      next[index] = updated;
+      return next;
+    });
   };
 
   const stepScore = (index: number, key: 'scoreA' | 'scoreB', delta: number) => {
@@ -115,7 +130,10 @@ export const MatchForm = ({ players, initial, onSave }: MatchFormProps) => {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError('');
-    const cleanSets = sets.slice(0, setCount);
+    const cleanSets = sets.slice(0, setCount).map((set) => {
+      const derivedWinner = deriveWinnerFromScores(set.scoreA, set.scoreB);
+      return derivedWinner ? { ...set, winnerSide: derivedWinner } : set;
+    });
 
     const playersSelected = [...normalizedSides.A, ...normalizedSides.B].every(Boolean);
     if (!playersSelected) {
@@ -132,7 +150,7 @@ export const MatchForm = ({ players, initial, onSave }: MatchFormProps) => {
     for (const set of cleanSets) {
       const included = set.winnerSide || set.scoreA !== undefined || set.scoreB !== undefined || set.note;
       if (included && !set.winnerSide) {
-        setError('Each included set requires winner selection (A or B).');
+        setError('Each included set needs a winner (auto from scores, or select A/B for ties/blanks).');
         return;
       }
     }

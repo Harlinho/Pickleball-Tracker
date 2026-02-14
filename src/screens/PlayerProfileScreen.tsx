@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { MatchCard } from '../components/MatchCard';
 import { useAppData } from '../state/AppDataContext';
 import { formatDateLabel } from '../utils/date';
@@ -21,7 +21,8 @@ export const PlayerProfileScreen = () => {
     '#ec4899'
   ];
   const { id } = useParams();
-  const { players, matches, updatePlayerColor, updatePlayerProfile } = useAppData();
+  const { players, matches, updatePlayerColor, updatePlayerProfile, deletePlayer } = useAppData();
+  const navigate = useNavigate();
   const player = players.find((p) => p.id === id);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editName, setEditName] = useState('');
@@ -29,6 +30,9 @@ export const PlayerProfileScreen = () => {
   const [editError, setEditError] = useState('');
   const [showColorPopover, setShowColorPopover] = useState(false);
   const [customColor, setCustomColor] = useState('');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  const [deleting, setDeleting] = useState(false);
   const colorRef = useRef<HTMLDivElement>(null);
 
   const stats = useMemo(() => {
@@ -109,27 +113,43 @@ export const PlayerProfileScreen = () => {
         </div>
         <div className="profile-title-wrap">
           <div className="profile-name-row">
-            <h2>{player.name}</h2>
-            <button
-              type="button"
-              className="player-edit-trigger"
-              aria-label="Edit player details"
-              onClick={() => {
-                setEditError('');
-                setShowEditModal(true);
-              }}
-            >
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path
-                  d="M4 16.8V20h3.2L18.9 8.3l-3.2-3.2L4 16.8z"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinejoin="round"
-                />
-                <path d="M13.9 6.9l3.2 3.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-              </svg>
-            </button>
+            <div className="profile-name-left">
+              <h2>{player.name}</h2>
+              <button
+                type="button"
+                className="player-edit-trigger"
+                aria-label="Edit player details"
+                onClick={() => {
+                  setEditError('');
+                  setShowEditModal(true);
+                }}
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path
+                    d="M4 16.8V20h3.2L18.9 8.3l-3.2-3.2L4 16.8z"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinejoin="round"
+                  />
+                  <path d="M13.9 6.9l3.2 3.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
+            <div className="player-header-actions">
+              <button
+                type="button"
+                className="player-delete-trigger"
+                disabled={deleting}
+                onClick={() => {
+                  setDeleteError('');
+                  setShowDeleteModal(true);
+                }}
+              >
+                {deleting ? 'Deleting...' : 'Delete player'}
+              </button>
+            </div>
           </div>
+          {deleteError ? <div className="profile-action-error">{deleteError}</div> : null}
           <div className="profile-meta-row">
             <span className="meta-chip">
               <span className="meta-label">Current streak</span>
@@ -219,8 +239,8 @@ export const PlayerProfileScreen = () => {
         <div className="modal-overlay" role="presentation" onClick={() => setShowEditModal(false)}>
           <section className="modal-card" onClick={(e) => e.stopPropagation()} aria-modal="true" role="dialog">
             <header className="modal-head">
-              <h3>Edit Player</h3>
-              <p className="muted">Update player identity details.</p>
+              <h3>Edit player</h3>
+              <p className="muted">Update player details for this journal.</p>
             </header>
 
             <div className="modal-grid">
@@ -255,7 +275,53 @@ export const PlayerProfileScreen = () => {
                   }
                 }}
               >
-                Save changes
+                Save
+              </button>
+            </footer>
+          </section>
+        </div>
+      ) : null}
+
+      {showDeleteModal ? (
+        <div
+          className="modal-overlay"
+          role="presentation"
+          onClick={() => {
+            if (!deleting) setShowDeleteModal(false);
+          }}
+        >
+          <section className="modal-card" onClick={(e) => e.stopPropagation()} aria-modal="true" role="dialog">
+            <header className="modal-head">
+              <h3>Delete player</h3>
+              <p className="muted">
+                This action cannot be undone. Deletion only works when this player is not referenced in match history.
+              </p>
+            </header>
+
+            {deleteError ? <div className="error">{deleteError}</div> : null}
+
+            <footer className="modal-actions">
+              <button type="button" disabled={deleting} onClick={() => setShowDeleteModal(false)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="danger"
+                disabled={deleting}
+                onClick={async () => {
+                  setDeleteError('');
+                  setDeleting(true);
+                  try {
+                    await deletePlayer(player.id);
+                    navigate('/standings');
+                  } catch (err) {
+                    setDeleteError((err as Error).message || 'Unable to delete player.');
+                  } finally {
+                    setDeleting(false);
+                  }
+                }}
+              >
+                {deleting ? 'Deleting...' : 'Delete'}
               </button>
             </footer>
           </section>

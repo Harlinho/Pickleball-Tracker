@@ -1,8 +1,9 @@
 import { toPng } from 'html-to-image';
-import { useRef } from 'react';
+import { useState, useRef } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { MatchCard } from '../components/MatchCard';
 import { useAppData } from '../state/AppDataContext';
+import { formatDateLabel } from '../utils/date';
 
 export const MatchDetailScreen = () => {
   const { id } = useParams();
@@ -10,6 +11,9 @@ export const MatchDetailScreen = () => {
   const { matches, players, deleteMatch } = useAppData();
   const match = matches.find((m) => m.id === id);
   const cardRef = useRef<HTMLDivElement>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const hasMatchNotes = Boolean(match?.notes?.trim());
   const setNotes = (match?.sets ?? [])
     .map((set, idx) => ({ index: idx + 1, note: set.note?.trim() ?? '' }))
@@ -42,10 +46,9 @@ export const MatchDetailScreen = () => {
           <button
             type="button"
             className="danger"
-            onClick={async () => {
-              if (!confirm('Delete this match?')) return;
-              await deleteMatch(match.id);
-              navigate('/');
+            onClick={() => {
+              setDeleteError('');
+              setShowDeleteModal(true);
             }}
           >
             Delete
@@ -73,6 +76,53 @@ export const MatchDetailScreen = () => {
             </p>
           ))}
         </section>
+      ) : null}
+
+      {showDeleteModal ? (
+        <div
+          className="modal-overlay"
+          role="presentation"
+          onClick={() => {
+            if (!deleting) setShowDeleteModal(false);
+          }}
+        >
+          <section className="modal-card" onClick={(e) => e.stopPropagation()} aria-modal="true" role="dialog">
+            <header className="modal-head">
+              <h3>Delete match</h3>
+              <p className="muted">
+                This action cannot be undone. It will permanently remove the {match.format.toLowerCase()} match on{' '}
+                {formatDateLabel(match.date)}.
+              </p>
+            </header>
+
+            {deleteError ? <div className="error">{deleteError}</div> : null}
+
+            <footer className="modal-actions">
+              <button type="button" disabled={deleting} onClick={() => setShowDeleteModal(false)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="danger"
+                disabled={deleting}
+                onClick={async () => {
+                  setDeleting(true);
+                  setDeleteError('');
+                  try {
+                    await deleteMatch(match.id);
+                    navigate('/');
+                  } catch (err) {
+                    setDeleteError((err as Error).message || 'Unable to delete match.');
+                  } finally {
+                    setDeleting(false);
+                  }
+                }}
+              >
+                {deleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </footer>
+          </section>
+        </div>
       ) : null}
     </section>
   );

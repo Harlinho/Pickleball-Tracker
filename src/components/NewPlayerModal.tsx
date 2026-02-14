@@ -39,8 +39,8 @@ export const NewPlayerModal = ({ open, onClose, onCreate }: NewPlayerModalProps)
     <div className="modal-overlay" onClick={() => (!submitting ? onClose() : undefined)} role="presentation">
       <section className="modal-card" onClick={(e) => e.stopPropagation()} aria-modal="true" role="dialog">
         <header className="modal-head">
-          <h3>Add New Player</h3>
-          <p className="muted">Create a player card for your roster.</p>
+          <h3>New player</h3>
+          <p className="muted">Add a player to this journal.</p>
         </header>
 
         <div className="modal-grid">
@@ -94,7 +94,7 @@ export const NewPlayerModal = ({ open, onClose, onCreate }: NewPlayerModalProps)
               }
             }}
           >
-            Create Player
+            {submitting ? 'Adding...' : 'Add player'}
           </button>
         </footer>
       </section>
