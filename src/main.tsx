@@ -6,34 +6,14 @@ import { AppDataProvider } from './state/AppDataContext';
 import './styles.css';
 
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  // Avoid stale-asset white screens on GitHub Pages by removing old SW/caches.
   window.addEventListener('load', () => {
-    void navigator.serviceWorker
-      .register(`${import.meta.env.BASE_URL}sw.js?v=${encodeURIComponent(__APP_VERSION__)}`)
-      .then((registration) => {
-        const triggerUpdate = () => {
-          if (registration.waiting) {
-            registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-          }
-        };
-
-        triggerUpdate();
-
-        registration.addEventListener('updatefound', () => {
-          const worker = registration.installing;
-          if (!worker) return;
-          worker.addEventListener('statechange', () => {
-            if (worker.state === 'installed' && navigator.serviceWorker.controller) {
-              triggerUpdate();
-            }
-          });
-        });
-      });
-  });
-
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (sessionStorage.getItem('pmj-sw-reloaded') === '1') return;
-    sessionStorage.setItem('pmj-sw-reloaded', '1');
-    window.location.reload();
+    void navigator.serviceWorker.getRegistrations().then((registrations) => {
+      void Promise.all(registrations.map((registration) => registration.unregister()));
+    });
+    if ('caches' in window) {
+      void caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key))));
+    }
   });
 }
 
