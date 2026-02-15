@@ -9,10 +9,23 @@ import { FuturisticPickleballLogo } from './components/FuturisticPickleballLogo'
 import { useAppData } from './state/AppDataContext';
 
 const ShellHeader = () => {
+  const { syncStatus, lastSyncedAt, syncError } = useAppData();
+  const syncText =
+    syncStatus === 'online'
+      ? `Synced${lastSyncedAt ? ` ${new Date(lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}`
+      : syncStatus === 'syncing'
+        ? 'Syncing...'
+        : syncStatus === 'offline'
+          ? 'Offline'
+          : 'Sync issue';
+
   return (
     <header className="app-header">
       <div>
         <FuturisticPickleballLogo />
+      </div>
+      <div className={`sync-pill ${syncStatus}`} title={syncError ?? syncText}>
+        {syncText}
       </div>
       <nav className="tabs" aria-label="Main tabs">
         <NavLink to="/" end className={({ isActive }) => (isActive ? 'tab active' : 'tab')}>

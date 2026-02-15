@@ -17,6 +17,9 @@ interface DataContextValue {
   matches: Match[];
   meta: AppMeta;
   loading: boolean;
+  syncStatus: 'online' | 'syncing' | 'offline' | 'error';
+  lastSyncedAt?: string;
+  syncError?: string;
   createPlayer: (input: string | { name: string; favoriteTennisPlayer?: string }) => Promise<Player>;
   renamePlayer: (id: string, name: string) => Promise<void>;
   updatePlayerProfile: (
@@ -166,12 +169,17 @@ export const AppDataProvider = ({ children }: PropsWithChildren) => {
   const [matches, setMatches] = useState<Match[]>([]);
   const [meta, setMetaState] = useState<AppMeta>({});
   const [loading, setLoading] = useState(true);
+  const [syncStatus, setSyncStatus] = useState<'online' | 'syncing' | 'offline' | 'error'>('syncing');
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | undefined>(undefined);
+  const [syncError, setSyncError] = useState<string | undefined>(undefined);
   const refreshInFlightRef = useRef(false);
 
   const reload = useCallback(async (options?: { silent?: boolean }) => {
     const silent = options?.silent ?? false;
     if (refreshInFlightRef.current) return;
     refreshInFlightRef.current = true;
+    setSyncStatus('syncing');
+    setSyncError(undefined);
     if (!silent) {
       setLoading(true);
     }
@@ -195,10 +203,12 @@ export const AppDataProvider = ({ children }: PropsWithChildren) => {
 
       setPlayers(((playersRes.data ?? []) as PlayerRow[]).map(rowToPlayer));
       setMatches(((matchesRes.data ?? []) as MatchRow[]).map(rowToMatch));
+      setSyncStatus(navigator.onLine ? 'online' : 'offline');
+      setLastSyncedAt(new Date().toISOString());
     } catch (error) {
       console.error('[Data] Failed to load from Supabase:', error);
-      setPlayers([]);
-      setMatches([]);
+      setSyncStatus(navigator.onLine ? 'error' : 'offline');
+      setSyncError((error as Error)?.message ?? 'Unable to sync right now.');
     } finally {
       refreshInFlightRef.current = false;
       if (!silent) {
@@ -322,6 +332,22 @@ export const AppDataProvider = ({ children }: PropsWithChildren) => {
       window.clearInterval(intervalId);
       window.removeEventListener('focus', refreshVisible);
       document.removeEventListener('visibilitychange', refreshVisible);
+    };
+  }, [reload]);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setSyncStatus('syncing');
+      void reload({ silent: true });
+    };
+    const handleOffline = () => {
+      setSyncStatus('offline');
+    };
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
     };
   }, [reload]);
 
@@ -506,6 +532,9 @@ export const AppDataProvider = ({ children }: PropsWithChildren) => {
       matches,
       meta,
       loading,
+      syncStatus,
+      lastSyncedAt,
+      syncError,
       createPlayer,
       renamePlayer,
       updatePlayerProfile,
@@ -524,6 +553,9 @@ export const AppDataProvider = ({ children }: PropsWithChildren) => {
       matches,
       meta,
       loading,
+      syncStatus,
+      lastSyncedAt,
+      syncError,
       createPlayer,
       renamePlayer,
       updatePlayerProfile,

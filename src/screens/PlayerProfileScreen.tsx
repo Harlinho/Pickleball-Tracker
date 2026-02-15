@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { MatchCard } from '../components/MatchCard';
 import { useAppData } from '../state/AppDataContext';
 import { formatDateLabel } from '../utils/date';
-import { computePlayerProfile } from '../utils/stats';
+import { computePlayerProfile, resolveMatch } from '../utils/stats';
 
 export const PlayerProfileScreen = () => {
   const presetColors = [
@@ -39,6 +39,77 @@ export const PlayerProfileScreen = () => {
     if (!player) return undefined;
     return computePlayerProfile(player, players, matches);
   }, [player, players, matches]);
+
+  const insights = useMemo(() => {
+    if (!player) return undefined;
+    const completed = matches.filter(
+      (match) => match.status === 'Completed' && (match.sides.A.includes(player.id) || match.sides.B.includes(player.id))
+    );
+
+    const formatSplit = {
+      Singles: { mp: 0, wins: 0, losses: 0 },
+      Doubles: { mp: 0, wins: 0, losses: 0 }
+    };
+    const sideSplit = {
+      A: { mp: 0, wins: 0, losses: 0 },
+      B: { mp: 0, wins: 0, losses: 0 }
+    };
+    const partnerMap = new Map<string, { name: string; mp: number; wins: number; losses: number }>();
+
+    completed.forEach((match) => {
+      const res = resolveMatch(match);
+      if (!res.winnerSide) return;
+      const playerSide = match.sides.A.includes(player.id) ? 'A' : 'B';
+      const won = res.winnerSide === playerSide;
+      const formatRow = formatSplit[match.format];
+      const sideRow = sideSplit[playerSide];
+      formatRow.mp += 1;
+      sideRow.mp += 1;
+      if (won) {
+        formatRow.wins += 1;
+        sideRow.wins += 1;
+      } else {
+        formatRow.losses += 1;
+        sideRow.losses += 1;
+      }
+
+      if (match.format === 'Doubles') {
+        const partners = (playerSide === 'A' ? match.sides.A : match.sides.B).filter((id) => id !== player.id);
+        partners.forEach((partnerId) => {
+          const partnerName = players.find((p) => p.id === partnerId)?.name;
+          if (!partnerName) return;
+          const prev = partnerMap.get(partnerId) ?? { name: partnerName, mp: 0, wins: 0, losses: 0 };
+          prev.mp += 1;
+          if (won) prev.wins += 1;
+          else prev.losses += 1;
+          partnerMap.set(partnerId, prev);
+        });
+      }
+    });
+
+    const bestPartner = [...partnerMap.values()]
+      .filter((row) => row.mp > 0)
+      .sort(
+        (a, b) =>
+          b.wins / b.mp - a.wins / a.mp || b.wins - a.wins || a.losses - b.losses || a.name.localeCompare(b.name)
+      )[0];
+
+    const hardestOpponent = stats?.h2h
+      ?.filter((row) => row.wins + row.losses > 0)
+      .sort(
+        (a, b) =>
+          a.wins - a.losses - (b.wins - b.losses) ||
+          b.losses - b.wins - (a.losses - a.wins) ||
+          a.opponentName.localeCompare(b.opponentName)
+      )[0];
+
+    return {
+      formatSplit,
+      sideSplit,
+      bestPartner,
+      hardestOpponent
+    };
+  }, [matches, player, players, stats?.h2h]);
 
   useEffect(() => {
     if (!player) return;
@@ -163,6 +234,18 @@ export const PlayerProfileScreen = () => {
               <span className="meta-label">Favorite tennis player</span>
               <strong>{player.favoriteTennisPlayer || 'Not set'}</strong>
             </span>
+            <span className="meta-chip">
+              <span className="meta-label">Best partner</span>
+              <strong>{insights?.bestPartner ? `${insights.bestPartner.name} (${insights.bestPartner.wins}-${insights.bestPartner.losses})` : 'N/A'}</strong>
+            </span>
+            <span className="meta-chip">
+              <span className="meta-label">Toughest opponent</span>
+              <strong>
+                {insights?.hardestOpponent
+                  ? `${insights.hardestOpponent.opponentName} (${insights.hardestOpponent.wins}-${insights.hardestOpponent.losses})`
+                  : 'N/A'}
+              </strong>
+            </span>
           </div>
         </div>
       </div>
@@ -199,6 +282,30 @@ export const PlayerProfileScreen = () => {
         <div className="stat-card">
           <span className="stat-label">Form Trend</span>
           <strong className="stat-value trend-value">{stats.summary.trend}</strong>
+        </div>
+        <div className="stat-card">
+          <span className="stat-label">Singles (W/L)</span>
+          <strong className="stat-value">
+            {insights?.formatSplit.Singles.wins ?? 0}/{insights?.formatSplit.Singles.losses ?? 0}
+          </strong>
+        </div>
+        <div className="stat-card">
+          <span className="stat-label">Doubles (W/L)</span>
+          <strong className="stat-value">
+            {insights?.formatSplit.Doubles.wins ?? 0}/{insights?.formatSplit.Doubles.losses ?? 0}
+          </strong>
+        </div>
+        <div className="stat-card">
+          <span className="stat-label">Side A (W/L)</span>
+          <strong className="stat-value">
+            {insights?.sideSplit.A.wins ?? 0}/{insights?.sideSplit.A.losses ?? 0}
+          </strong>
+        </div>
+        <div className="stat-card">
+          <span className="stat-label">Side B (W/L)</span>
+          <strong className="stat-value">
+            {insights?.sideSplit.B.wins ?? 0}/{insights?.sideSplit.B.losses ?? 0}
+          </strong>
         </div>
       </div>
 
