@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { DatePickerField } from '../components/DatePickerField';
 import { MatchCard } from '../components/MatchCard';
 import { NewPlayerModal } from '../components/NewPlayerModal';
 import { SelectField } from '../components/SelectField';
@@ -17,11 +16,10 @@ const defaultFilters: MatchFilters = {
 export const MatchesScreen = () => {
   const navigate = useNavigate();
   const { matches, players, createPlayer } = useAppData();
-  const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<MatchFilters>(defaultFilters);
   const [showNewPlayerModal, setShowNewPlayerModal] = useState(false);
   const [viewMode, setViewMode] = useState<'recent' | 'date' | 'all'>('recent');
-  const [quickRange, setQuickRange] = useState<'none' | 'this-week' | 'last-week' | 'this-month'>('none');
+  const [quickRange, setQuickRange] = useState<'none' | 'this-week' | 'last-week'>('none');
   const [showMobileFilters, setShowMobileFilters] = useState(true);
   const [visibleGroupCount, setVisibleGroupCount] = useState(6);
 
@@ -32,16 +30,10 @@ export const MatchesScreen = () => {
         if (filters.playerId && !match.sides.A.concat(match.sides.B).includes(filters.playerId)) return false;
         if (filters.dateFrom && match.date < filters.dateFrom) return false;
         if (filters.dateTo && match.date > filters.dateTo) return false;
-
-        if (!search.trim()) return true;
-        const lower = search.toLowerCase();
-        const names = [...match.sides.A, ...match.sides.B]
-          .map((id) => players.find((p) => p.id === id)?.name.toLowerCase() ?? '')
-          .join(' ');
-        return names.includes(lower) || match.date.includes(lower);
+        return true;
       })
       .sort((a, b) => `${b.date}-${b.createdAt}`.localeCompare(`${a.date}-${a.createdAt}`));
-  }, [filters, matches, players, search]);
+  }, [filters, matches]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, typeof filtered>();
@@ -56,6 +48,7 @@ export const MatchesScreen = () => {
   const recentDates = useMemo(() => grouped.slice(0, 5).map(([date]) => date), [grouped]);
   const recentMatches = useMemo(() => filtered.slice(0, 5), [filtered]);
   const [activeDate, setActiveDate] = useState<string | undefined>(undefined);
+  const hasAnyMatches = matches.length > 0;
 
   useEffect(() => {
     const media = window.matchMedia('(max-width: 760px)');
@@ -65,29 +58,22 @@ export const MatchesScreen = () => {
     return () => media.removeEventListener('change', apply);
   }, []);
 
-  const applyQuickRange = (range: 'this-week' | 'last-week' | 'this-month') => {
+  const applyQuickRange = (range: 'this-week' | 'last-week') => {
     const now = new Date();
     const toISO = (date: Date) => date.toISOString().slice(0, 10);
     let from = '';
     let to = '';
 
-    if (range === 'this-week' || range === 'last-week') {
-      const weekStart = new Date(now);
-      const day = weekStart.getDay() || 7;
-      weekStart.setDate(weekStart.getDate() - day + 1);
-      if (range === 'last-week') {
-        weekStart.setDate(weekStart.getDate() - 7);
-      }
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 6);
-      from = toISO(weekStart);
-      to = toISO(weekEnd);
-    } else {
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      from = toISO(monthStart);
-      to = toISO(monthEnd);
+    const weekStart = new Date(now);
+    const day = weekStart.getDay() || 7;
+    weekStart.setDate(weekStart.getDate() - day + 1);
+    if (range === 'last-week') {
+      weekStart.setDate(weekStart.getDate() - 7);
     }
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    from = toISO(weekStart);
+    to = toISO(weekEnd);
 
     setFilters((prev) => ({ ...prev, dateFrom: from, dateTo: to }));
     setQuickRange(range);
@@ -111,17 +97,11 @@ export const MatchesScreen = () => {
   useEffect(() => {
     if (viewMode !== 'all') return;
     setVisibleGroupCount(6);
-  }, [viewMode, filters.dateFrom, filters.dateTo, search, filters.playerId, filters.status]);
+  }, [viewMode, filters.dateFrom, filters.dateTo, filters.playerId, filters.status]);
 
   return (
     <section className="screen stack" data-testid="matches-screen">
       <div className="toolbar">
-        <input
-          placeholder="Search player or date"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          data-testid="global-search"
-        />
         <button
           type="button"
           className="primary desktop-only-action"
@@ -132,30 +112,6 @@ export const MatchesScreen = () => {
         <Link to="/matches/new" className="primary button-link desktop-only-action" data-testid="new-match-btn">
           + New Match
         </Link>
-      </div>
-
-      <div className="quick-range-row">
-        <button
-          type="button"
-          className={`chip ${quickRange === 'this-week' ? 'active' : ''}`}
-          onClick={() => applyQuickRange('this-week')}
-        >
-          This week
-        </button>
-        <button
-          type="button"
-          className={`chip ${quickRange === 'last-week' ? 'active' : ''}`}
-          onClick={() => applyQuickRange('last-week')}
-        >
-          Last week
-        </button>
-        <button
-          type="button"
-          className={`chip ${quickRange === 'this-month' ? 'active' : ''}`}
-          onClick={() => applyQuickRange('this-month')}
-        >
-          This month
-        </button>
       </div>
 
       <div className={`filters-row ${showMobileFilters ? '' : 'filters-collapsed'}`}>
@@ -174,22 +130,6 @@ export const MatchesScreen = () => {
           options={[{ value: '', label: 'All players' }, ...players.map((p) => ({ value: p.id, label: p.name }))]}
           testId="player-filter"
         />
-        <DatePickerField
-          value={filters.dateFrom}
-          onChange={(value) => {
-            setQuickRange('none');
-            setFilters((prev) => ({ ...prev, dateFrom: value }));
-          }}
-          ariaLabel="Date from"
-        />
-        <DatePickerField
-          value={filters.dateTo}
-          onChange={(value) => {
-            setQuickRange('none');
-            setFilters((prev) => ({ ...prev, dateTo: value }));
-          }}
-          ariaLabel="Date to"
-        />
         <button
           type="button"
           onClick={() => {
@@ -201,43 +141,67 @@ export const MatchesScreen = () => {
         </button>
       </div>
 
+      {hasAnyMatches ? (
+        <div className="date-chips" data-testid="date-chip-row">
+          <button
+            type="button"
+            className={`chip ${viewMode === 'all' && quickRange === 'none' ? 'active' : ''}`}
+            onClick={() => {
+              setQuickRange('none');
+              setFilters((prev) => ({ ...prev, dateFrom: '', dateTo: '' }));
+              setViewMode('all');
+              setVisibleGroupCount(6);
+            }}
+            data-testid="all-history-btn"
+          >
+            All history
+          </button>
+          <button
+            className={`chip ${viewMode === 'recent' ? 'active' : ''}`}
+            onClick={() => {
+              setQuickRange('none');
+              setFilters((prev) => ({ ...prev, dateFrom: '', dateTo: '' }));
+              setViewMode('recent');
+            }}
+            data-testid="today-jump-btn"
+            type="button"
+          >
+            Recent
+          </button>
+          <button
+            type="button"
+            className={`chip ${quickRange === 'this-week' ? 'active' : ''}`}
+            onClick={() => applyQuickRange('this-week')}
+          >
+            This week
+          </button>
+          <button
+            type="button"
+            className={`chip ${quickRange === 'last-week' ? 'active' : ''}`}
+            onClick={() => applyQuickRange('last-week')}
+          >
+            Last week
+          </button>
+          {recentDates.map((date) => (
+            <button
+              type="button"
+              key={date}
+              className={`chip ${viewMode === 'date' && activeDate === date ? 'active' : ''}`}
+              onClick={() => {
+                setActiveDate(date);
+                setViewMode('date');
+              }}
+              data-testid={`date-chip-${date}`}
+            >
+              {date}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
       {grouped.length ? (
         <>
-          <div className="date-chips" data-testid="date-chip-row">
-            <button
-              className={`chip ${viewMode === 'recent' ? 'active' : ''}`}
-              onClick={() => setViewMode('recent')}
-              data-testid="today-jump-btn"
-              type="button"
-            >
-              Recent
-            </button>
-            {recentDates.map((date) => (
-              <button
-                type="button"
-                key={date}
-                className={`chip ${viewMode === 'date' && activeDate === date ? 'active' : ''}`}
-                onClick={() => {
-                  setActiveDate(date);
-                  setViewMode('date');
-                }}
-                data-testid={`date-chip-${date}`}
-              >
-                {date}
-              </button>
-            ))}
-            <button
-              type="button"
-              className={`chip ${viewMode === 'all' ? 'active' : ''}`}
-              onClick={() => {
-                setViewMode('all');
-                setVisibleGroupCount(6);
-              }}
-              data-testid="all-history-btn"
-            >
-              All history
-            </button>
-          </div>
+          
 
           {viewMode === 'recent' ? (
             <section className="date-group expanded" data-testid="recent-matches-group">
@@ -277,9 +241,32 @@ export const MatchesScreen = () => {
         <div className="empty-state">
           <div className="illustration" />
           <h3>No matches found</h3>
-          <p>Add a match or clear filters.</p>
+          <p>Try another view or clear filters.</p>
+          <div className="empty-actions">
+            <button
+              type="button"
+              onClick={() => {
+                setQuickRange('none');
+                setFilters(defaultFilters);
+                setViewMode('all');
+                setVisibleGroupCount(6);
+              }}
+            >
+              Show all history
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setQuickRange('none');
+                setFilters(defaultFilters);
+                setViewMode('recent');
+              }}
+            >
+              Show recent
+            </button>
+          </div>
           <Link to="/matches/new" className="button-link primary">
-            Create your first match
+            Create a match
           </Link>
         </div>
       )}

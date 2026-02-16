@@ -9,12 +9,12 @@
   --surface-strong: #11161c;
   --surface-soft: #171d24;
   --primary: #3fa9f5;
-  --primary-strong: #3099e4;
-  --primary-pop: #4db3fa;
-  --primary-pop-strong: #3ca2eb;
-  --secondary: #7cc5fb;
+  --primary-strong: #3fa9f5;
+  --primary-pop: #3fa9f5;
+  --primary-pop-strong: #3fa9f5;
+  --secondary: #3fa9f5;
   --danger: #3fa9f5;
-  --focus: #67bbf7;
+  --focus: #3fa9f5;
   --glow-a: rgba(63, 169, 245, 0.12);
   --glow-b: rgba(63, 169, 245, 0.06);
   --shadow-lg: 0 12px 26px rgba(0, 0, 0, 0.22);
@@ -226,7 +226,7 @@ p {
   display: grid;
   align-items: center;
   gap: 0.8rem;
-  grid-template-columns: auto auto 1fr;
+  grid-template-columns: auto 1fr;
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--surface-soft) 26%, var(--surface)) 0%,
@@ -278,7 +278,7 @@ p {
   gap: 0.2rem;
   padding: 0.2rem;
   width: fit-content;
-  justify-self: start;
+  justify-self: end;
   border-radius: 999px;
   background: color-mix(in srgb, var(--surface-soft) 58%, transparent);
   border: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
@@ -924,6 +924,8 @@ th {
 .profile-title-wrap {
   display: grid;
   gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
 }
 
 .profile-title-wrap h2 {
@@ -1071,6 +1073,37 @@ th {
 
 .trend-value {
   text-transform: capitalize;
+}
+
+.trend-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.34rem;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 0.34rem 0.62rem;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+
+.trend-up {
+  color: #d8ffe8;
+  border: 1px solid color-mix(in srgb, #16a34a 60%, transparent);
+  background: color-mix(in srgb, #16a34a 22%, transparent);
+}
+
+.trend-flat {
+  color: #d8e8f7;
+  border: 1px solid color-mix(in srgb, var(--primary) 58%, transparent);
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+.trend-down {
+  color: #ffe0e0;
+  border: 1px solid color-mix(in srgb, #dc2626 58%, transparent);
+  background: color-mix(in srgb, #dc2626 20%, transparent);
 }
 
 .panel {

@@ -30,6 +30,7 @@ export const PlayerProfileScreen = () => {
   const [editError, setEditError] = useState('');
   const [showColorPopover, setShowColorPopover] = useState(false);
   const [customColor, setCustomColor] = useState('');
+  const [previewColor, setPreviewColor] = useState('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const [deleting, setDeleting] = useState(false);
@@ -39,6 +40,13 @@ export const PlayerProfileScreen = () => {
     if (!player) return undefined;
     return computePlayerProfile(player, players, matches);
   }, [player, players, matches]);
+
+  const trendUi = useMemo(() => {
+    const trend = stats?.summary.trend ?? 'flat';
+    if (trend === 'up') return { icon: '↗', label: 'Hot', tone: 'up' as const };
+    if (trend === 'down') return { icon: '↘', label: 'Cool', tone: 'down' as const };
+    return { icon: '→', label: 'Steady', tone: 'flat' as const };
+  }, [stats?.summary.trend]);
 
   const insights = useMemo(() => {
     if (!player) return undefined;
@@ -116,15 +124,24 @@ export const PlayerProfileScreen = () => {
     setEditName(player.name);
     setEditFavorite(player.favoriteTennisPlayer ?? '');
     setCustomColor(player.avatarColor ?? '#0ea5e9');
+    setPreviewColor(player.avatarColor ?? '#0ea5e9');
   }, [player]);
 
   useEffect(() => {
     const onDocClick = (event: MouseEvent) => {
-      if (!colorRef.current?.contains(event.target as Node)) setShowColorPopover(false);
+      if (!colorRef.current?.contains(event.target as Node)) {
+        setShowColorPopover(false);
+        setCustomColor(player?.avatarColor ?? '#0ea5e9');
+        setPreviewColor(player?.avatarColor ?? '#0ea5e9');
+      }
     };
     document.addEventListener('mousedown', onDocClick);
     return () => document.removeEventListener('mousedown', onDocClick);
-  }, []);
+  }, [player?.avatarColor]);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [id]);
 
   if (!player || !stats) return <section className="screen">Player not found.</section>;
 
@@ -136,24 +153,40 @@ export const PlayerProfileScreen = () => {
             type="button"
             className="avatar-button"
             title="Change player color"
-            onClick={() => setShowColorPopover((prev) => !prev)}
+            onClick={() =>
+              setShowColorPopover((prev) => {
+                const next = !prev;
+                if (next) {
+                  const current = player.avatarColor ?? '#0ea5e9';
+                  setCustomColor(current);
+                  setPreviewColor(current);
+                } else {
+                  setCustomColor(player.avatarColor ?? '#0ea5e9');
+                  setPreviewColor(player.avatarColor ?? '#0ea5e9');
+                }
+                return next;
+              })
+            }
           >
-            <span className="avatar large" style={{ background: player.avatarColor ?? '#0284c7' }} />
+            <span
+              className="avatar large"
+              style={{ background: showColorPopover ? previewColor || '#0284c7' : player.avatarColor ?? '#0284c7' }}
+            />
           </button>
           <span className="avatar-hint">Color</span>
 
           {showColorPopover ? (
             <div className="color-popover">
-              <h4>Team color</h4>
+              <h4>Player color</h4>
               <div className="color-swatch-grid">
                 {presetColors.map((hex) => (
                   <button
                     type="button"
                     key={hex}
-                    className={`color-swatch ${player.avatarColor === hex ? 'active' : ''}`}
+                    className={`color-swatch ${previewColor === hex ? 'active' : ''}`}
                     style={{ background: hex }}
-                    onClick={async () => {
-                      await updatePlayerColor(player.id, hex);
+                    onClick={() => {
+                      setPreviewColor(hex);
                       setCustomColor(hex);
                     }}
                     aria-label={`Set color ${hex}`}
@@ -173,6 +206,7 @@ export const PlayerProfileScreen = () => {
                   onClick={async () => {
                     const normalized = customColor.trim().toLowerCase();
                     if (!/^#[0-9a-f]{6}$/.test(normalized)) return;
+                    setPreviewColor(normalized);
                     await updatePlayerColor(player.id, normalized);
                   }}
                 >
@@ -281,7 +315,10 @@ export const PlayerProfileScreen = () => {
         </div>
         <div className="stat-card">
           <span className="stat-label">Form Trend</span>
-          <strong className="stat-value trend-value">{stats.summary.trend}</strong>
+          <strong className={`trend-badge trend-${trendUi.tone}`}>
+            <span aria-hidden="true">{trendUi.icon}</span>
+            <span>{trendUi.label}</span>
+          </strong>
         </div>
         <div className="stat-card">
           <span className="stat-label">Singles (W/L)</span>
@@ -293,18 +330,6 @@ export const PlayerProfileScreen = () => {
           <span className="stat-label">Doubles (W/L)</span>
           <strong className="stat-value">
             {insights?.formatSplit.Doubles.wins ?? 0}/{insights?.formatSplit.Doubles.losses ?? 0}
-          </strong>
-        </div>
-        <div className="stat-card">
-          <span className="stat-label">Side A (W/L)</span>
-          <strong className="stat-value">
-            {insights?.sideSplit.A.wins ?? 0}/{insights?.sideSplit.A.losses ?? 0}
-          </strong>
-        </div>
-        <div className="stat-card">
-          <span className="stat-label">Side B (W/L)</span>
-          <strong className="stat-value">
-            {insights?.sideSplit.B.wins ?? 0}/{insights?.sideSplit.B.losses ?? 0}
           </strong>
         </div>
       </div>
